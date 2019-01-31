@@ -1,0 +1,5 @@
+builtins; python_version >= '3.0'
+future
+python-redmine
+PyYAML
+slackclient

@@ -25,7 +25,7 @@ def load_config():
     try:
         config = yaml.safe_load(open(config_path))
     except:
-        raise Exception('Unable to load ~/{}: does it exist?'.format(config_filename))
+        raise Exception('Unable to load ~/{}: does it exist (or is there a YAML error)?'.format(config_filename))
 
     # Verify Redmine URL has been set in the config file
     if 'url' not in config:
@@ -70,16 +70,16 @@ time_entries = redmine.time_entry.filter(user_id=user.id, from_date=yesterday, t
 # Print scrum update template
 report = "Since last scrum:\n"
 
-if 'ignore issues' in config and config['ignore issues']:
-    for entry in time_entries:
-        if not 'ignore issues' in config or not entry.issue.id in config['ignore issues']:
-            report += bullet_point(entry.comments, entry.issue.id)
+for entry in time_entries:
+    if not 'ignore issues' in config or not entry.issue.id in config['ignore issues']:
+        report += bullet_point(entry.comments, entry.issue.id)
 
 report += "\nToday:\n"
 
 # Display tasks, if any
-for task in config['current tasks']:
-    report += bullet_point(task, False)
+if 'current tasks' in config and config['current tasks']:
+    for task in config['current tasks']:
+        report += bullet_point(task, False)
 
 # Display current issues, if any
 if 'current issues' in config and config['current issues']:

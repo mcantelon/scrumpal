@@ -1,0 +1,118 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+from builtins import input
+from datetime import date, timedelta
+from redminelib import Redmine
+from slackclient import SlackClient
+import os
+import yaml
+
+def load_config():
+    """Return configuration, from YAML file, for this application.
+    Raises:
+        Exception: If not able to read or parse the configuration file for any
+                   reason or if "base branch" isn't set in the configuration
+                   file.
+    Returns:
+        dict: Configuration information.
+    """
+    config_filename = '.scrumpal.yml'
+
+    # Attempt to load configuration file from user's home directory
+    config_path = os.path.join(os.path.expanduser('~'), config_filename)
+
+    try:
+        config = yaml.safe_load(open(config_path))
+    except:
+        raise Exception('Unable to load ~/{}: does it exist?'.format(config_filename))
+
+    # Verify Redmine URL has been set in the config file
+    if 'url' not in config:
+        raise Exception('Please set Redmine site as "url" in {}.'.format(config_filename))
+
+    # Verify Redmine username has been set in the config file
+    if 'username' not in config:
+        raise Exception('Please set Redmine account username as "username" in {}.'.format(config_filename))
+
+    # Verify Redmine password has been set in the config file
+    if 'password' not in config:
+        raise Exception('Please set Redmine account password as "password" in {}.'.format(config_filename))
+
+    return config
+
+def bullet_point(description, issue_id):
+    if issue_id:
+        return '* {} (#{})'.format(description, str(issue_id)) + "\n"
+    else:
+        return '* {}'.format(description) + "\n"
+
+# Load configuration
+config = load_config()
+
+if 'ignore issues' in config:
+    print('Igoring issues {}...'.format(', '.join(map(str, config['ignore issues']))))
+
+# Authenticate
+redmine = Redmine(config['url'], username=config['username'], password=config['password'])
+
+# Get current user and determine yesterday's date
+user = redmine.user.get('current')
+yesterday_raw = date.today() - timedelta(1)
+yesterday = yesterday_raw.strftime('%Y-%m-%d')
+
+print("Fetching time entries from {} for {}...".format(yesterday, user))
+print()
+
+# Get yesterday's time entries
+time_entries = redmine.time_entry.filter(user_id=user.id, from_date=yesterday, to_date=yesterday, sort='hours:desc')
+
+# Print scrum update template
+report = "Since last scrum:\n"
+
+if 'ignore issues' in config and config['ignore issues']:
+    for entry in time_entries:
+        if not 'ignore issues' in config or not entry.issue.id in config['ignore issues']:
+            report += bullet_point(entry.comments, entry.issue.id)
+
+report += "\nToday:\n"
+
+# Display tasks, if any
+for task in config['current tasks']:
+    report += bullet_point(task, False)
+
+# Display current issues, if any
+if 'current issues' in config and config['current issues']:
+    for issue_id in config['current issues']:
+        issue = redmine.issue.get(issue_id)
+        report += bullet_point(issue.subject, issue.id)
+
+report += "\n"
+
+# Display blockers, if any
+if 'blockers' in config and config['blockers']:
+    report += "Blockers:\n"
+    for blocker in config['blockers']:
+        report += bullet_point(blocker, False)
+else:
+    report += 'Blockers: none'
+
+print(report)
+
+# Send report to Slack, if configured to do so
+if 'slack api token' in config and config['slack api token']:
+    print()
+    input("Press [ENTER] to send report to Slack (or CTRL-C to cancel).")
+
+    sc = SlackClient(config['slack api token'])
+
+    sc.api_call(
+        "chat.postMessage",
+        channel=config['slack channel'],
+        username=config['slack username'],
+        as_user=True,
+        text=report
+    )
+
+    print()
+    print('Report sent to Slack.')

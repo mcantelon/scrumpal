@@ -15,6 +15,8 @@ specifies a legacy API token and related confugration parameters.
 Configuration
 -------------
 
+A YAML-formatted configuration file should be created at `$HOME/.scrumpal.yml`.
+
 Here's an example configuration file:
 
     url: https://someredmineserver.com

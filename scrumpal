@@ -71,8 +71,11 @@ time_entries = redmine.time_entry.filter(user_id=user.id, from_date=yesterday, t
 report = "Since last scrum:\n"
 
 for entry in time_entries:
-    if not 'ignore issues' in config or not entry.issue.id in config['ignore issues']:
-        report += bullet_point(entry.comments, entry.issue.id)
+    if  not hasattr(entry, 'issue') or not 'ignore issues' in config or not entry.issue.id in config['ignore issues']:
+        if hasattr(entry, 'issue'): 
+            report += bullet_point(entry.comments, entry.issue.id)
+        else:
+            report += bullet_point(entry.comments, False)
 
 report += "\nToday:\n"
 

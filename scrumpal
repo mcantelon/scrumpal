@@ -114,7 +114,7 @@ if 'slack api token' in config and config['slack api token']:
         channel=config['slack channel'],
         username=config['slack username'],
         as_user=True,
-        text=report
+        text='```'+ report + '```'
     )
 
     print()
